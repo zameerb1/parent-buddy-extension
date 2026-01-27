@@ -17,9 +17,21 @@
     <p id="reason">This page has been blocked.</p>
   </div>
   <script>
-    const params = new URLSearchParams(window.location.search);
-    const reason = params.get('reason');
-    if (reason) document.getElementById('reason').textContent = reason;
+    document.addEventListener('DOMContentLoaded', () => {
+      try {
+        const url = new URL(window.location.href);
+        const reason = url.searchParams.get('reason');
+        if (reason) {
+          document.getElementById('reason').textContent = decodeURIComponent(reason);
+        }
+      } catch (e) {
+        // Fallback: parse manually
+        const match = window.location.href.match(/[?&]reason=([^&]*)/);
+        if (match) {
+          document.getElementById('reason').textContent = decodeURIComponent(match[1]);
+        }
+      }
+    });
   </script>
 </body>
 </html>
