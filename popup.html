@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Parent Buddy Settings</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      width: 320px;
+      padding: 20px;
+      margin: 0;
+      background: #f8f9fa;
+    }
+    h1 {
+      font-size: 18px;
+      color: #333;
+      margin: 0 0 20px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .logo { font-size: 24px; }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+      transition: border-color 0.2s;
+    }
+    input:focus {
+      outline: none;
+      border-color: #4a90d9;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #4a90d9;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #3a7bc8;
+    }
+    .status-section {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #e0e0e0;
+    }
+    .status-title {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: white;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #e74c3c;
+    }
+    .status-dot.connected {
+      background: #27ae60;
+    }
+    .status-dot.allowed {
+      background: #27ae60;
+    }
+    .status-text {
+      font-size: 14px;
+      color: #333;
+    }
+    .message {
+      margin-top: 12px;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      display: none;
+    }
+    .message.success {
+      display: block;
+      background: #d4edda;
+      color: #155724;
+    }
+    .message.error {
+      display: block;
+      background: #f8d7da;
+      color: #721c24;
+    }
+  </style>
+</head>
+<body>
+  <h1><span class="logo">👨‍👩‍👧‍👦</span> Parent Buddy</h1>
+
+  <form id="settingsForm">
+    <div class="form-group">
+      <label for="backendUrl">Backend Server URL</label>
+      <input type="url" id="backendUrl" placeholder="http://localhost:3000" required>
+    </div>
+    <div class="form-group">
+      <label for="deviceId">Device ID</label>
+      <input type="text" id="deviceId" placeholder="my-kids-laptop" required>
+    </div>
+    <button type="submit">Save Settings</button>
+  </form>
+
+  <div id="message" class="message"></div>
+
+  <div class="status-section">
+    <div class="status-title">CONNECTION STATUS</div>
+    <div class="status-indicator">
+      <div id="connectionDot" class="status-dot"></div>
+      <span id="connectionText" class="status-text">Not configured</span>
+    </div>
+  </div>
+
+  <div class="status-section" style="border-top: none; margin-top: 8px; padding-top: 0;">
+    <div class="status-title">INTERNET ACCESS</div>
+    <div class="status-indicator">
+      <div id="accessDot" class="status-dot"></div>
+      <span id="accessText" class="status-text">Unknown</span>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

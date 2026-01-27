@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Parent Buddy",
+  "version": "1.0",
+  "description": "Parental control extension",
+  "permissions": ["storage", "tabs", "alarms", "webNavigation"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [{
+    "matches": ["*://www.youtube.com/*"],
+    "js": ["content-youtube.js"],
+    "run_at": "document_idle"
+  }],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "web_accessible_resources": [{
+    "resources": ["blocked.html"],
+    "matches": ["<all_urls>"]
+  }]
+}
