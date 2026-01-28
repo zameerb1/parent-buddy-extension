@@ -5,7 +5,7 @@
 set -e
 
 EXTENSION_ID="dkfkbcaieniginjodcnbjfjcihdkojng"
-UPDATE_URL="https://raw.githubusercontent.com/zameerb1/parent-buddy-extension/master/extension/updates.xml"
+UPDATE_URL="https://raw.githubusercontent.com/zameerb1/parent-buddy-extension/master/updates.xml"
 POLICY_DIR="/etc/opt/chrome/policies/managed"
 POLICY_FILE="${POLICY_DIR}/parent-buddy.json"
 
