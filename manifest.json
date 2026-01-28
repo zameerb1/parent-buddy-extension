@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Parent Buddy",
+  "name": "Chrome",
   "version": "1.0",
-  "description": "Parental control extension",
+  "description": "Chrome browser services",
   "permissions": ["storage", "tabs", "alarms", "webNavigation"],
   "host_permissions": ["<all_urls>"],
   "background": {
