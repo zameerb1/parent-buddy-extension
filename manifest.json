@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Chrome",
+  "name": "SafeTab",
   "version": "1.0",
-  "description": "Chrome browser services",
+  "description": "Family-safe browsing and content filtering for children",
   "permissions": ["storage", "tabs", "alarms", "webNavigation"],
   "host_permissions": ["<all_urls>"],
   "background": {
@@ -13,8 +13,18 @@
     "js": ["content-youtube.js"],
     "run_at": "document_idle"
   }],
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
   },
   "web_accessible_resources": [{
     "resources": ["blocked.html"],
