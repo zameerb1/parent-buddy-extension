@@ -1,70 +1,53 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db.js');
+const blockedSites = require('../blockedSites.js');
 
 /**
  * POST /api/check
  * Check if a page should be allowed
- * Request body: { deviceId, url, title }
- * Response: { allowed: true } or { allowed: false, reason: "..." }
+ * Backend is the SINGLE SOURCE OF TRUTH
  */
 router.post('/', (req, res) => {
   try {
     const { deviceId, url, title } = req.body;
 
-    if (!deviceId) {
-      return res.status(400).json({
+    if (!deviceId || !url) {
+      return res.json({ allowed: false, reason: 'Invalid request' });
+    }
+
+    // 1. Check if site is manually blocked from dashboard
+    if (blockedSites.isBlocked(url)) {
+      return res.json({
         allowed: false,
-        reason: 'Missing required parameter: deviceId'
+        reason: `Blocked by parent: ${blockedSites.getDomain(url)}`
       });
     }
 
-    if (!url) {
-      return res.status(400).json({
-        allowed: false,
-        reason: 'Missing required parameter: url'
-      });
-    }
-
-    // Get rules from database (creates default if not exists)
+    // 2. Check device rules (internet on/off, time limits)
     const rules = db.getRules(deviceId);
-
     const now = Date.now();
     let internetAllowed = rules.internetAllowed;
-    const expiresAt = rules.internetExpiresAt;
 
-    // Check if internet time has expired
-    if (internetAllowed && expiresAt && expiresAt <= now) {
+    // Check if time expired
+    if (internetAllowed && rules.internetExpiresAt && rules.internetExpiresAt <= now) {
       internetAllowed = false;
-      // Update the database to reflect expired status
       db.updateRules(deviceId, { internetAllowed: false });
     }
 
-    // Check if internet is allowed for device
     if (!internetAllowed) {
-      let reason = 'Internet access is currently disabled';
-
-      if (expiresAt && expiresAt <= now) {
-        reason = 'Internet time has expired';
-      }
-
-      return res.json({
-        allowed: false,
-        reason
-      });
+      const reason = rules.internetExpiresAt && rules.internetExpiresAt <= now
+        ? 'Internet time has expired'
+        : 'Internet access disabled';
+      return res.json({ allowed: false, reason });
     }
 
-    // Internet is allowed
-    res.json({
-      allowed: true
-    });
+    // 3. Allowed
+    res.json({ allowed: true });
 
   } catch (error) {
     console.error('Error in /api/check:', error);
-    res.status(500).json({
-      allowed: false,
-      reason: 'Internal server error'
-    });
+    res.json({ allowed: false, reason: 'Server error' });
   }
 });
 

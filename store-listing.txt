@@ -1,0 +1,27 @@
+SHORT DESCRIPTION (132 chars max):
+Parental control extension — AI-powered content filtering and screen time management for safe browsing. Controlled via Telegram.
+
+DETAILED DESCRIPTION:
+SafeTab helps parents manage their children's internet access and filter inappropriate content automatically.
+
+Features:
+• AI-powered YouTube video classification — automatically blocks inappropriate videos based on title, channel, and description
+• Internet access control — enable or disable browsing with time limits
+• Telegram bot integration — control everything from your phone using natural language commands
+• Channel allow/block lists — permanently allow or block specific YouTube channels
+• Watch history — see what your child has been watching
+• Adjustable strictness — choose between strict, moderate, or lenient content filtering
+• Fail-safe design — blocks all access if the server is unreachable
+
+How it works:
+1. Install SafeTab on your child's device
+2. Deploy the backend server (self-hosted for privacy)
+3. Control everything via Telegram — "allow internet for 30 mins", "block internet", "what's being watched?"
+
+All filtering logic runs on your own private server — no data is shared with third parties. You maintain full control.
+
+CATEGORY: Productivity
+
+LANGUAGE: English
+
+PRIVACY POLICY URL: https://zameerb1.github.io/parent-buddy-extension/privacy-policy.html
