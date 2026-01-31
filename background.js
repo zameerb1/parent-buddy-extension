@@ -39,10 +39,45 @@ function shouldSkipUrl(url) {
   return false;
 }
 
-// Poll backend every 30 seconds
+// Poll backend every 30 seconds for status, every 5 seconds for tabs
 chrome.alarms.create('syncStatus', { periodInMinutes: 0.5 });
+chrome.alarms.create('syncTabs', { periodInMinutes: 0.083 }); // ~5 seconds
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'syncStatus') await syncStatus();
+  if (alarm.name === 'syncTabs') await syncTabs();
+});
+
+// Send all open tabs to backend
+async function syncTabs() {
+  if (!BACKEND_URL) return;
+  try {
+    const tabs = await chrome.tabs.query({});
+    const tabData = tabs
+      .filter(tab => !shouldSkipUrl(tab.url))
+      .map(tab => ({
+        id: tab.id,
+        url: tab.url,
+        title: tab.title,
+        active: tab.active,
+        windowId: tab.windowId
+      }));
+
+    await fetch(`${BACKEND_URL}/api/tabs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceId: DEVICE_ID, tabs: tabData })
+    });
+    console.log('[ParentBuddy] Tabs synced:', tabData.length);
+  } catch (e) {
+    console.error('[ParentBuddy] Tabs sync failed:', e.message);
+  }
+}
+
+// Also sync tabs on tab changes
+chrome.tabs.onCreated.addListener(() => syncTabs());
+chrome.tabs.onRemoved.addListener(() => syncTabs());
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.url || changeInfo.title) syncTabs();
 });
 
 async function syncStatus() {

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Parent Buddy - Live Tabs</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #333;
+    }
+    h1 { font-size: 24px; color: #4ade80; }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #888;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #4ade80;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .device {
+      background: #16213e;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .device-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .device-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #60a5fa;
+    }
+    .device-time {
+      font-size: 12px;
+      color: #666;
+    }
+    .tabs-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .tab-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #0f172a;
+      padding: 12px 16px;
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+    .tab-item:hover {
+      background: #1e293b;
+    }
+    .tab-favicon {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      background: #333;
+      flex-shrink: 0;
+    }
+    .tab-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .tab-title {
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+    .tab-url {
+      font-size: 12px;
+      color: #666;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tab-active {
+      border-left: 3px solid #4ade80;
+    }
+    .youtube-tab {
+      border-left: 3px solid #ff0000;
+    }
+    .no-tabs {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    .tab-count {
+      background: #4ade80;
+      color: #000;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .refresh-btn {
+      background: #4ade80;
+      color: #000;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .refresh-btn:hover {
+      background: #22c55e;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Parent Buddy - Live Tabs</h1>
+    <div class="status">
+      <div class="status-dot"></div>
+      <span>Auto-refreshing every 5s</span>
+      <button class="refresh-btn" onclick="fetchTabs()">Refresh Now</button>
+    </div>
+  </div>
+
+  <div id="devices-container">
+    <div class="no-tabs">Waiting for data from Chromebook...</div>
+  </div>
+
+  <script>
+    const container = document.getElementById('devices-container');
+
+    function formatTime(timestamp) {
+      if (!timestamp) return 'Never';
+      const date = new Date(timestamp);
+      return date.toLocaleTimeString();
+    }
+
+    function getFaviconUrl(url) {
+      try {
+        const u = new URL(url);
+        return `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=32`;
+      } catch {
+        return '';
+      }
+    }
+
+    function isYouTube(url) {
+      return url && (url.includes('youtube.com') || url.includes('youtu.be'));
+    }
+
+    function renderDevices(data) {
+      if (!data.devices || data.devices.length === 0) {
+        container.innerHTML = '<div class="no-tabs">No devices connected. Install the extension on the Chromebook.</div>';
+        return;
+      }
+
+      container.innerHTML = data.devices.map(device => {
+        const tabs = device.tabs || [];
+        return `
+          <div class="device">
+            <div class="device-header">
+              <div class="device-name">${device.deviceId}</div>
+              <div>
+                <span class="tab-count">${tabs.length} tabs</span>
+                <span class="device-time">Updated: ${formatTime(device.lastUpdate)}</span>
+              </div>
+            </div>
+            <div class="tabs-list">
+              ${tabs.length === 0 ? '<div class="no-tabs">No tabs open</div>' : tabs.map(tab => `
+                <div class="tab-item ${tab.active ? 'tab-active' : ''} ${isYouTube(tab.url) ? 'youtube-tab' : ''}">
+                  <img class="tab-favicon" src="${getFaviconUrl(tab.url)}" onerror="this.style.display='none'">
+                  <div class="tab-info">
+                    <div class="tab-title">${tab.title || 'Untitled'}</div>
+                    <div class="tab-url">${tab.url || ''}</div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function fetchTabs() {
+      try {
+        const res = await fetch('/api/tabs');
+        const data = await res.json();
+        renderDevices(data);
+      } catch (e) {
+        console.error('Failed to fetch tabs:', e);
+      }
+    }
+
+    // Initial fetch
+    fetchTabs();
+
+    // Auto-refresh every 5 seconds
+    setInterval(fetchTabs, 5000);
+  </script>
+</body>
+</html>
