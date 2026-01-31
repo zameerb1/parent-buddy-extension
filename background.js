@@ -39,13 +39,61 @@ function shouldSkipUrl(url) {
   return false;
 }
 
-// Poll backend every 30 seconds for status, every 5 seconds for tabs
+// Poll backend every 30 seconds for status, every 5 seconds for tabs, every 3 seconds for pending blocks
 chrome.alarms.create('syncStatus', { periodInMinutes: 0.5 });
 chrome.alarms.create('syncTabs', { periodInMinutes: 0.083 }); // ~5 seconds
+chrome.alarms.create('checkPending', { periodInMinutes: 0.05 }); // ~3 seconds
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'syncStatus') await syncStatus();
   if (alarm.name === 'syncTabs') await syncTabs();
+  if (alarm.name === 'checkPending') await checkPendingBlocks();
 });
+
+// List of blocked URLs from dashboard
+let blockedUrls = [];
+
+// Check for pending block commands from dashboard
+async function checkPendingBlocks() {
+  if (!BACKEND_URL) return;
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/tabs/pending?deviceId=${DEVICE_ID}`);
+    if (res.ok) {
+      const data = await res.json();
+
+      // Update blocked URLs list
+      blockedUrls = data.blockedUrls || [];
+
+      // Process pending block commands (close specific tabs)
+      if (data.pending && data.pending.length > 0) {
+        for (const block of data.pending) {
+          console.log('[ParentBuddy] Closing blocked tab:', block.tabId, block.url);
+          try {
+            await chrome.tabs.remove(block.tabId);
+          } catch (e) {
+            console.log('[ParentBuddy] Tab already closed or not found');
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[ParentBuddy] Check pending failed:', e.message);
+  }
+}
+
+// Check if URL is in blocked list
+function isUrlBlocked(url) {
+  if (!url) return false;
+  return blockedUrls.some(blockedUrl => {
+    try {
+      const blocked = new URL(blockedUrl);
+      const check = new URL(url);
+      // Match by hostname
+      return check.hostname === blocked.hostname;
+    } catch {
+      return url.includes(blockedUrl);
+    }
+  });
+}
 
 // Send all open tabs to backend
 async function syncTabs() {
@@ -108,6 +156,15 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
   try {
     const tab = await chrome.tabs.get(details.tabId);
     if (!tab || shouldSkipUrl(tab.url)) return;
+
+    // Check if URL is in dashboard-blocked list first
+    if (isUrlBlocked(tab.url)) {
+      console.log('[ParentBuddy] URL in blocked list:', tab.url);
+      chrome.tabs.update(details.tabId, {
+        url: chrome.runtime.getURL(`blocked.html?reason=${encodeURIComponent('Blocked by parent')}`)
+      });
+      return;
+    }
 
     console.log('[ParentBuddy] Checking page:', tab.url);
     const result = await checkPage(tab.url, tab.title || '');

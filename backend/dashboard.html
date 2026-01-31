@@ -135,6 +135,82 @@
     .refresh-btn:hover {
       background: #22c55e;
     }
+    .block-btn {
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .block-btn:hover {
+      background: #dc2626;
+    }
+    .block-btn:disabled {
+      background: #666;
+      cursor: not-allowed;
+    }
+    .blocked-list {
+      background: #16213e;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .blocked-list h2 {
+      font-size: 16px;
+      color: #ef4444;
+      margin-bottom: 15px;
+    }
+    .blocked-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0f172a;
+      padding: 10px 16px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    .unblock-btn {
+      background: #22c55e;
+      color: #000;
+      border: none;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .unblock-btn:hover {
+      background: #16a34a;
+    }
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #4ade80;
+      color: #000;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      display: none;
+      z-index: 1000;
+    }
+    .toast.error {
+      background: #ef4444;
+      color: #fff;
+    }
+    .toast.show {
+      display: block;
+      animation: fadeIn 0.3s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
   </style>
 </head>
 <body>
@@ -147,12 +223,24 @@
     </div>
   </div>
 
+  <div id="blocked-container"></div>
+
   <div id="devices-container">
     <div class="no-tabs">Waiting for data from Chromebook...</div>
   </div>
 
+  <div class="toast" id="toast"></div>
+
   <script>
     const container = document.getElementById('devices-container');
+    const blockedContainer = document.getElementById('blocked-container');
+    const toast = document.getElementById('toast');
+
+    function showToast(message, isError = false) {
+      toast.textContent = message;
+      toast.className = 'toast show' + (isError ? ' error' : '');
+      setTimeout(() => toast.className = 'toast', 3000);
+    }
 
     function formatTime(timestamp) {
       if (!timestamp) return 'Never';
@@ -171,6 +259,71 @@
 
     function isYouTube(url) {
       return url && (url.includes('youtube.com') || url.includes('youtu.be'));
+    }
+
+    function getDomain(url) {
+      try {
+        return new URL(url).hostname;
+      } catch {
+        return url;
+      }
+    }
+
+    async function blockTab(deviceId, tabId, url, title) {
+      try {
+        const res = await fetch('/api/tabs/block', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceId, tabId, url, title })
+        });
+        if (res.ok) {
+          showToast(`Blocked: ${getDomain(url)}`);
+          fetchTabs();
+          fetchBlocked();
+        } else {
+          showToast('Failed to block', true);
+        }
+      } catch (e) {
+        showToast('Error blocking tab', true);
+      }
+    }
+
+    async function unblockUrl(url) {
+      try {
+        const res = await fetch('/api/tabs/unblock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        if (res.ok) {
+          showToast(`Unblocked: ${getDomain(url)}`);
+          fetchBlocked();
+        } else {
+          showToast('Failed to unblock', true);
+        }
+      } catch (e) {
+        showToast('Error unblocking', true);
+      }
+    }
+
+    function renderBlocked(data) {
+      const blocked = data.blocked || [];
+      if (blocked.length === 0) {
+        blockedContainer.innerHTML = '';
+        return;
+      }
+
+      blockedContainer.innerHTML = `
+        <div class="blocked-list">
+          <h2>Blocked Sites (${blocked.length})</h2>
+          ${blocked.map(item => `
+            <div class="blocked-item">
+              <span>${getDomain(item.url)} - ${item.title || 'No title'}</span>
+              <button class="unblock-btn" onclick="unblockUrl('${item.url.replace(/'/g, "\\'")}')">Unblock</button>
+            </div>
+          `).join('')}
+        </div>
+      `;
     }
 
     function renderDevices(data) {
@@ -198,6 +351,7 @@
                     <div class="tab-title">${tab.title || 'Untitled'}</div>
                     <div class="tab-url">${tab.url || ''}</div>
                   </div>
+                  <button class="block-btn" onclick="blockTab('${device.deviceId}', ${tab.id}, '${tab.url.replace(/'/g, "\\'")}', '${(tab.title || '').replace(/'/g, "\\'")}')">Block</button>
                 </div>
               `).join('')}
             </div>
@@ -216,11 +370,23 @@
       }
     }
 
+    async function fetchBlocked() {
+      try {
+        const res = await fetch('/api/tabs/blocked');
+        const data = await res.json();
+        renderBlocked(data);
+      } catch (e) {
+        console.error('Failed to fetch blocked:', e);
+      }
+    }
+
     // Initial fetch
     fetchTabs();
+    fetchBlocked();
 
     // Auto-refresh every 5 seconds
     setInterval(fetchTabs, 5000);
+    setInterval(fetchBlocked, 10000);
   </script>
 </body>
 </html>
