@@ -6,6 +6,7 @@ const checkRouter = require('./check.js');
 const videoRouter = require('./video.js');
 const logRouter = require('./log.js');
 const tabsRouter = require('./tabs.js');
+const internetRouter = require('./internet.js');
 
 // Mount route handlers
 router.use('/status', statusRouter);
@@ -13,5 +14,6 @@ router.use('/check', checkRouter);
 router.use('/video', videoRouter);
 router.use('/log', logRouter);
 router.use('/tabs', tabsRouter);
+router.use('/internet', internetRouter);
 
 module.exports = router;

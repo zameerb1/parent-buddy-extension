@@ -211,6 +211,71 @@
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    .internet-control {
+      background: #16213e;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .control-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    .control-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .control-icon {
+      font-size: 24px;
+    }
+    .control-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .enable-btn {
+      background: #22c55e;
+      color: #fff;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .enable-btn:hover {
+      background: #16a34a;
+    }
+    .disable-btn {
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .disable-btn:hover {
+      background: #dc2626;
+    }
+    .time-remaining {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #888;
+    }
+    .internet-on {
+      color: #4ade80;
+    }
+    .internet-off {
+      color: #ef4444;
+    }
   </style>
 </head>
 <body>
@@ -221,6 +286,23 @@
       <span>Auto-refreshing every 5s</span>
       <button class="refresh-btn" onclick="fetchTabs()">Refresh Now</button>
     </div>
+  </div>
+
+  <div id="internet-control" class="internet-control">
+    <div class="control-row">
+      <div class="control-label">
+        <span class="control-icon" id="internet-icon">🌐</span>
+        <span id="internet-status-text">Internet: Loading...</span>
+      </div>
+      <div class="control-buttons">
+        <button class="enable-btn" onclick="enableInternet(15)">15 min</button>
+        <button class="enable-btn" onclick="enableInternet(30)">30 min</button>
+        <button class="enable-btn" onclick="enableInternet(60)">1 hour</button>
+        <button class="enable-btn" onclick="enableInternet(null)">Unlimited</button>
+        <button class="disable-btn" onclick="disableInternet()">Block All</button>
+      </div>
+    </div>
+    <div id="time-remaining" class="time-remaining"></div>
   </div>
 
   <div id="blocked-container"></div>
@@ -380,13 +462,79 @@
       }
     }
 
+    // Internet control functions
+    async function enableInternet(minutes) {
+      try {
+        const res = await fetch('/api/internet/enable', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ minutes })
+        });
+        if (res.ok) {
+          const msg = minutes ? `Internet enabled for ${minutes} minutes` : 'Internet enabled (unlimited)';
+          showToast(msg);
+          fetchInternetStatus();
+        }
+      } catch (e) {
+        showToast('Error enabling internet', true);
+      }
+    }
+
+    async function disableInternet() {
+      try {
+        const res = await fetch('/api/internet/disable', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (res.ok) {
+          showToast('Internet disabled');
+          fetchInternetStatus();
+        }
+      } catch (e) {
+        showToast('Error disabling internet', true);
+      }
+    }
+
+    async function fetchInternetStatus() {
+      try {
+        const res = await fetch('/api/internet/status');
+        const data = await res.json();
+
+        const statusText = document.getElementById('internet-status-text');
+        const icon = document.getElementById('internet-icon');
+        const timeRemaining = document.getElementById('time-remaining');
+
+        if (data.internetAllowed) {
+          statusText.textContent = 'Internet: ON';
+          statusText.className = 'internet-on';
+          icon.textContent = '🟢';
+
+          if (data.expiresAt) {
+            const remaining = Math.max(0, Math.floor((data.expiresAt - Date.now()) / 60000));
+            timeRemaining.textContent = `Time remaining: ${remaining} minutes`;
+          } else {
+            timeRemaining.textContent = 'Unlimited access';
+          }
+        } else {
+          statusText.textContent = 'Internet: OFF';
+          statusText.className = 'internet-off';
+          icon.textContent = '🔴';
+          timeRemaining.textContent = '';
+        }
+      } catch (e) {
+        console.error('Failed to fetch internet status:', e);
+      }
+    }
+
     // Initial fetch
     fetchTabs();
     fetchBlocked();
+    fetchInternetStatus();
 
-    // Auto-refresh every 5 seconds
+    // Auto-refresh
     setInterval(fetchTabs, 5000);
     setInterval(fetchBlocked, 10000);
+    setInterval(fetchInternetStatus, 5000);
   </script>
 </body>
 </html>
