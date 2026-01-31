@@ -276,6 +276,19 @@
     .internet-off {
       color: #ef4444;
     }
+    .device-select {
+      background: #0f172a;
+      color: #fff;
+      border: 1px solid #333;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .device-select:focus {
+      outline: none;
+      border-color: #4ade80;
+    }
   </style>
 </head>
 <body>
@@ -291,8 +304,11 @@
   <div id="internet-control" class="internet-control">
     <div class="control-row">
       <div class="control-label">
+        <select id="device-select" class="device-select" onchange="fetchInternetStatus()">
+          <option value="">Select device...</option>
+        </select>
         <span class="control-icon" id="internet-icon">🌐</span>
-        <span id="internet-status-text">Internet: Loading...</span>
+        <span id="internet-status-text">Internet: --</span>
       </div>
       <div class="control-buttons">
         <button class="enable-btn" onclick="enableInternet(15)">15 min</button>
@@ -447,6 +463,7 @@
         const res = await fetch('/api/tabs');
         const data = await res.json();
         renderDevices(data);
+        updateDeviceDropdown(data.devices || []);
       } catch (e) {
         console.error('Failed to fetch tabs:', e);
       }
@@ -462,13 +479,49 @@
       }
     }
 
+    // Get selected device
+    function getSelectedDevice() {
+      return document.getElementById('device-select').value;
+    }
+
+    // Update device dropdown
+    function updateDeviceDropdown(devices) {
+      const select = document.getElementById('device-select');
+      const current = select.value;
+
+      // Keep existing selection if still valid
+      const deviceIds = devices.map(d => d.deviceId);
+
+      // Clear and repopulate
+      select.innerHTML = '<option value="">Select device...</option>';
+      devices.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.deviceId;
+        opt.textContent = d.deviceId;
+        select.appendChild(opt);
+      });
+
+      // Restore selection or auto-select if only one device
+      if (deviceIds.includes(current)) {
+        select.value = current;
+      } else if (devices.length === 1) {
+        select.value = devices[0].deviceId;
+        fetchInternetStatus();
+      }
+    }
+
     // Internet control functions
     async function enableInternet(minutes) {
+      const deviceId = getSelectedDevice();
+      if (!deviceId) {
+        showToast('Select a device first', true);
+        return;
+      }
       try {
         const res = await fetch('/api/internet/enable', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ minutes })
+          body: JSON.stringify({ deviceId, minutes })
         });
         if (res.ok) {
           const msg = minutes ? `Internet enabled for ${minutes} minutes` : 'Internet enabled (unlimited)';
@@ -481,10 +534,16 @@
     }
 
     async function disableInternet() {
+      const deviceId = getSelectedDevice();
+      if (!deviceId) {
+        showToast('Select a device first', true);
+        return;
+      }
       try {
         const res = await fetch('/api/internet/disable', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceId })
         });
         if (res.ok) {
           showToast('Internet disabled');
@@ -496,8 +555,11 @@
     }
 
     async function fetchInternetStatus() {
+      const deviceId = getSelectedDevice();
+      if (!deviceId) return;
+
       try {
-        const res = await fetch('/api/internet/status');
+        const res = await fetch(`/api/internet/status?deviceId=${encodeURIComponent(deviceId)}`);
         const data = await res.json();
 
         const statusText = document.getElementById('internet-status-text');
