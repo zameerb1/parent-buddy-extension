@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db.js');
+const sites = require('../blockedSites.js');
 
 // Default device ID (can be extended for multi-device)
 const DEFAULT_DEVICE = 'chromebook';
@@ -40,6 +41,9 @@ router.post('/enable', (req, res) => {
     internetAllowed: true,
     internetExpiresAt: expiresAt
   });
+
+  // Clear temporary blocks (but not bans)
+  sites.clearAllBlocked();
 
   console.log(`[Internet] Enabled for ${deviceId}${minutes ? ` (${minutes} min)` : ' (unlimited)'}`);
 

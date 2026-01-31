@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db.js');
-const blockedSites = require('../blockedSites.js');
+const sites = require('../blockedSites.js');
 
 /**
  * POST /api/check
  * Check if a page should be allowed
- * Backend is the SINGLE SOURCE OF TRUTH
+ * Priority: 1. Banned (always block) 2. Blocked (temp block) 3. Internet rules
  */
 router.post('/', (req, res) => {
   try {
@@ -16,15 +16,23 @@ router.post('/', (req, res) => {
       return res.json({ allowed: false, reason: 'Invalid request' });
     }
 
-    // 1. Check if site is manually blocked from dashboard
-    if (blockedSites.isBlocked(url)) {
+    // 1. Check if BANNED (permanent - always block)
+    if (sites.isBanned(url)) {
       return res.json({
         allowed: false,
-        reason: `Blocked by parent: ${blockedSites.getDomain(url)}`
+        reason: `Banned: ${sites.getDomain(url)}`
       });
     }
 
-    // 2. Check device rules (internet on/off, time limits)
+    // 2. Check if BLOCKED (temporary)
+    if (sites.isBlocked(url)) {
+      return res.json({
+        allowed: false,
+        reason: `Blocked: ${sites.getDomain(url)}`
+      });
+    }
+
+    // 3. Check device rules (internet on/off, time limits)
     const rules = db.getRules(deviceId);
     const now = Date.now();
     let internetAllowed = rules.internetAllowed;
@@ -42,12 +50,12 @@ router.post('/', (req, res) => {
       return res.json({ allowed: false, reason });
     }
 
-    // 3. Allowed
+    // 4. Allowed
     res.json({ allowed: true });
 
   } catch (error) {
     console.error('Error in /api/check:', error);
-    res.json({ allowed: false, reason: 'Server error' });
+    res.json({ allowed: true }); // Allow on error
   }
 });
 

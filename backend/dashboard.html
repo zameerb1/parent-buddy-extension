@@ -136,24 +136,39 @@
       background: #22c55e;
     }
     .block-btn {
-      background: #ef4444;
-      color: #fff;
+      background: #f59e0b;
+      color: #000;
       border: none;
-      padding: 6px 12px;
+      padding: 6px 10px;
       border-radius: 6px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       flex-shrink: 0;
     }
     .block-btn:hover {
+      background: #d97706;
+    }
+    .ban-btn {
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .ban-btn:hover {
       background: #dc2626;
     }
-    .block-btn:disabled {
-      background: #666;
-      cursor: not-allowed;
+    .tab-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
     }
-    .blocked-list {
+    .blocked-list, .banned-list {
       background: #16213e;
       border-radius: 12px;
       padding: 20px;
@@ -161,8 +176,44 @@
     }
     .blocked-list h2 {
       font-size: 16px;
+      color: #f59e0b;
+      margin-bottom: 15px;
+    }
+    .banned-list h2 {
+      font-size: 16px;
       color: #ef4444;
       margin-bottom: 15px;
+    }
+    .lists-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 800px) {
+      .lists-container {
+        grid-template-columns: 1fr;
+      }
+    }
+    .connection-status {
+      padding: 10px 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    .connection-ok {
+      background: #16a34a22;
+      border: 1px solid #16a34a;
+      color: #4ade80;
+    }
+    .connection-warning {
+      background: #f59e0b22;
+      border: 1px solid #f59e0b;
+      color: #fbbf24;
+    }
+    .connection-error {
+      background: #ef444422;
+      border: 1px solid #ef4444;
+      color: #f87171;
     }
     .blocked-item {
       display: flex;
@@ -321,7 +372,14 @@
     <div id="time-remaining" class="time-remaining"></div>
   </div>
 
-  <div id="blocked-container"></div>
+  <div id="connection-status" class="connection-status connection-warning">
+    Waiting for Chromebook to connect...
+  </div>
+
+  <div class="lists-container">
+    <div id="blocked-container"></div>
+    <div id="banned-container"></div>
+  </div>
 
   <div id="devices-container">
     <div class="no-tabs">Waiting for data from Chromebook...</div>
@@ -332,6 +390,8 @@
   <script>
     const container = document.getElementById('devices-container');
     const blockedContainer = document.getElementById('blocked-container');
+    const bannedContainer = document.getElementById('banned-container');
+    const connectionStatus = document.getElementById('connection-status');
     const toast = document.getElementById('toast');
 
     function showToast(message, isError = false) {
@@ -344,6 +404,40 @@
       if (!timestamp) return 'Never';
       const date = new Date(timestamp);
       return date.toLocaleTimeString();
+    }
+
+    function formatTimeAgo(timestamp) {
+      if (!timestamp) return 'Never';
+      const seconds = Math.floor((Date.now() - timestamp) / 1000);
+      if (seconds < 10) return 'Just now';
+      if (seconds < 60) return `${seconds}s ago`;
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes}m ago`;
+      const hours = Math.floor(minutes / 60);
+      return `${hours}h ago`;
+    }
+
+    function updateConnectionStatus(devices) {
+      if (!devices || devices.length === 0) {
+        connectionStatus.className = 'connection-status connection-warning';
+        connectionStatus.textContent = '⚠️ No devices connected. Waiting for Chromebook...';
+        return;
+      }
+
+      const device = devices[0]; // First device
+      const lastPing = device.lastUpdate;
+      const secondsAgo = Math.floor((Date.now() - lastPing) / 1000);
+
+      if (secondsAgo < 10) {
+        connectionStatus.className = 'connection-status connection-ok';
+        connectionStatus.textContent = `✅ ${device.deviceId} connected - Last ping: ${formatTimeAgo(lastPing)}`;
+      } else if (secondsAgo < 30) {
+        connectionStatus.className = 'connection-status connection-warning';
+        connectionStatus.textContent = `⚠️ ${device.deviceId} - Last ping: ${formatTimeAgo(lastPing)}`;
+      } else {
+        connectionStatus.className = 'connection-status connection-error';
+        connectionStatus.textContent = `❌ ${device.deviceId} NOT responding - Last ping: ${formatTimeAgo(lastPing)}`;
+      }
     }
 
     function getFaviconUrl(url) {
@@ -367,22 +461,20 @@
       }
     }
 
-    async function blockTab(deviceId, tabId, url, title) {
+    // === BLOCK (temporary) ===
+    async function blockTab(url, title) {
       try {
         const res = await fetch('/api/tabs/block', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deviceId, tabId, url, title })
+          body: JSON.stringify({ url, title })
         });
         if (res.ok) {
           showToast(`Blocked: ${getDomain(url)}`);
-          fetchTabs();
           fetchBlocked();
-        } else {
-          showToast('Failed to block', true);
         }
       } catch (e) {
-        showToast('Error blocking tab', true);
+        showToast('Error blocking', true);
       }
     }
 
@@ -396,28 +488,90 @@
         if (res.ok) {
           showToast(`Unblocked: ${getDomain(url)}`);
           fetchBlocked();
-        } else {
-          showToast('Failed to unblock', true);
         }
       } catch (e) {
         showToast('Error unblocking', true);
       }
     }
 
+    // === BAN (permanent) ===
+    async function banTab(url, title) {
+      try {
+        const res = await fetch('/api/tabs/ban', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, title })
+        });
+        if (res.ok) {
+          showToast(`Banned: ${getDomain(url)}`);
+          fetchBanned();
+          fetchBlocked();
+        }
+      } catch (e) {
+        showToast('Error banning', true);
+      }
+    }
+
+    async function unbanUrl(url) {
+      try {
+        const res = await fetch('/api/tabs/unban', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        if (res.ok) {
+          showToast(`Unbanned: ${getDomain(url)}`);
+          fetchBanned();
+        }
+      } catch (e) {
+        showToast('Error unbanning', true);
+      }
+    }
+
     function renderBlocked(data) {
       const blocked = data.blocked || [];
       if (blocked.length === 0) {
-        blockedContainer.innerHTML = '';
+        blockedContainer.innerHTML = `
+          <div class="blocked-list">
+            <h2>⏸️ Blocked (Temporary)</h2>
+            <div class="blocked-item" style="color:#666">No sites blocked. Clears when internet is re-enabled.</div>
+          </div>
+        `;
         return;
       }
 
       blockedContainer.innerHTML = `
         <div class="blocked-list">
-          <h2>Blocked Sites (${blocked.length})</h2>
+          <h2>⏸️ Blocked (${blocked.length}) - Temporary</h2>
           ${blocked.map(item => `
             <div class="blocked-item">
-              <span>${getDomain(item.url)} - ${item.title || 'No title'}</span>
-              <button class="unblock-btn" onclick="unblockUrl('${item.url.replace(/'/g, "\\'")}')">Unblock</button>
+              <span>${item.domain || getDomain(item.url)}</span>
+              <button class="unblock-btn" onclick="unblockUrl('${item.url.replace(/'/g, "\\'")}')">Allow</button>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderBanned(data) {
+      const banned = data.banned || [];
+      if (banned.length === 0) {
+        bannedContainer.innerHTML = `
+          <div class="banned-list">
+            <h2>🚫 Banned (Permanent)</h2>
+            <div class="blocked-item" style="color:#666">No sites banned. Banned sites are always blocked.</div>
+          </div>
+        `;
+        return;
+      }
+
+      bannedContainer.innerHTML = `
+        <div class="banned-list">
+          <h2>🚫 Banned (${banned.length}) - Permanent</h2>
+          ${banned.map(item => `
+            <div class="blocked-item">
+              <span>${item.domain || getDomain(item.url)}</span>
+              <button class="unblock-btn" onclick="unbanUrl('${item.url.replace(/'/g, "\\'")}')">Unban</button>
             </div>
           `).join('')}
         </div>
@@ -449,7 +603,10 @@
                     <div class="tab-title">${tab.title || 'Untitled'}</div>
                     <div class="tab-url">${tab.url || ''}</div>
                   </div>
-                  <button class="block-btn" onclick="blockTab('${device.deviceId}', ${tab.id}, '${tab.url.replace(/'/g, "\\'")}', '${(tab.title || '').replace(/'/g, "\\'")}')">Block</button>
+                  <div class="tab-actions">
+                    <button class="block-btn" onclick="blockTab('${tab.url.replace(/'/g, "\\'")}', '${(tab.title || '').replace(/'/g, "\\'")}')">Block</button>
+                    <button class="ban-btn" onclick="banTab('${tab.url.replace(/'/g, "\\'")}', '${(tab.title || '').replace(/'/g, "\\'")}')">Ban</button>
+                  </div>
                 </div>
               `).join('')}
             </div>
@@ -464,6 +621,7 @@
         const data = await res.json();
         renderDevices(data);
         updateDeviceDropdown(data.devices || []);
+        updateConnectionStatus(data.devices || []);
       } catch (e) {
         console.error('Failed to fetch tabs:', e);
       }
@@ -476,6 +634,16 @@
         renderBlocked(data);
       } catch (e) {
         console.error('Failed to fetch blocked:', e);
+      }
+    }
+
+    async function fetchBanned() {
+      try {
+        const res = await fetch('/api/tabs/banned');
+        const data = await res.json();
+        renderBanned(data);
+      } catch (e) {
+        console.error('Failed to fetch banned:', e);
       }
     }
 
@@ -591,11 +759,13 @@
     // Initial fetch
     fetchTabs();
     fetchBlocked();
+    fetchBanned();
     fetchInternetStatus();
 
     // Auto-refresh
-    setInterval(fetchTabs, 5000);
-    setInterval(fetchBlocked, 10000);
+    setInterval(fetchTabs, 3000);
+    setInterval(fetchBlocked, 5000);
+    setInterval(fetchBanned, 10000);
     setInterval(fetchInternetStatus, 5000);
   </script>
 </body>

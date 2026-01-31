@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const blockedSites = require('../blockedSites.js');
+const sites = require('../blockedSites.js');
 
 // In-memory tab storage
 const deviceTabs = new Map();
@@ -30,27 +30,42 @@ router.get('/', (req, res) => {
   res.json({ devices: allDevices });
 });
 
-// POST /api/tabs/block - block a site
+// === BLOCK (temporary) ===
 router.post('/block', (req, res) => {
   const { url, title } = req.body;
   if (!url) return res.status(400).json({ error: 'url required' });
-
-  blockedSites.block(url, title);
-  res.json({ success: true, blocked: blockedSites.getDomain(url) });
+  sites.block(url, title);
+  res.json({ success: true, blocked: sites.getDomain(url) });
 });
 
-// POST /api/tabs/unblock - unblock a site
 router.post('/unblock', (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'url required' });
-
-  blockedSites.unblock(url);
+  sites.unblock(url);
   res.json({ success: true });
 });
 
-// GET /api/tabs/blocked - get blocked sites list
 router.get('/blocked', (req, res) => {
-  res.json({ blocked: blockedSites.getAll() });
+  res.json({ blocked: sites.getBlocked() });
+});
+
+// === BAN (permanent) ===
+router.post('/ban', (req, res) => {
+  const { url, title } = req.body;
+  if (!url) return res.status(400).json({ error: 'url required' });
+  sites.ban(url, title);
+  res.json({ success: true, banned: sites.getDomain(url) });
+});
+
+router.post('/unban', (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'url required' });
+  sites.unban(url);
+  res.json({ success: true });
+});
+
+router.get('/banned', (req, res) => {
+  res.json({ banned: sites.getBanned() });
 });
 
 module.exports = router;

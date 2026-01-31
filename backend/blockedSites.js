@@ -1,7 +1,8 @@
-// Shared blocked sites storage
-// Used by both /api/check and /api/tabs/block
+// Blocked = temporary (clears on internet enable)
+// Banned = permanent (always blocked)
 
 const blockedSites = new Map(); // domain -> { url, title, blockedAt }
+const bannedSites = new Map();  // domain -> { url, title, bannedAt }
 
 function getDomain(url) {
   try {
@@ -11,6 +12,7 @@ function getDomain(url) {
   }
 }
 
+// === BLOCK (temporary) ===
 function block(url, title) {
   const domain = getDomain(url);
   blockedSites.set(domain, { url, title, domain, blockedAt: Date.now() });
@@ -23,13 +25,47 @@ function unblock(url) {
   console.log(`[Unblocked] ${domain}`);
 }
 
+function clearAllBlocked() {
+  blockedSites.clear();
+  console.log(`[Blocked] Cleared all`);
+}
+
+function getBlocked() {
+  return Array.from(blockedSites.values());
+}
+
+// === BAN (permanent) ===
+function ban(url, title) {
+  const domain = getDomain(url);
+  bannedSites.set(domain, { url, title, domain, bannedAt: Date.now() });
+  // Also remove from blocked if it was there
+  blockedSites.delete(domain);
+  console.log(`[Banned] ${domain}`);
+}
+
+function unban(url) {
+  const domain = getDomain(url);
+  bannedSites.delete(domain);
+  console.log(`[Unbanned] ${domain}`);
+}
+
+function getBanned() {
+  return Array.from(bannedSites.values());
+}
+
+// === CHECK ===
 function isBlocked(url) {
   const domain = getDomain(url);
   return blockedSites.has(domain);
 }
 
-function getAll() {
-  return Array.from(blockedSites.values());
+function isBanned(url) {
+  const domain = getDomain(url);
+  return bannedSites.has(domain);
 }
 
-module.exports = { block, unblock, isBlocked, getAll, getDomain };
+module.exports = {
+  block, unblock, clearAllBlocked, getBlocked, isBlocked,
+  ban, unban, getBanned, isBanned,
+  getDomain
+};
